@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Environments
+.venv/
+venv/
+
+# Tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# uv.lock is intentionally NOT ignored: it pins the reproducible environment
+
+# Scratch and generated run output
+out/
+scratch/
+
+# OMC operational state; project-scoped skills are the documented exception
+.omc/
+!.omc/skills/
+!.omc/skills/**
+
+# macOS
+.DS_Store
