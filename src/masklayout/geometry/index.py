@@ -12,6 +12,7 @@ from collections.abc import Sequence
 import numpy as np
 from shapely.geometry import LineString, Point
 from shapely.geometry import Polygon as ShapelyPolygon
+from shapely.ops import unary_union
 from shapely.strtree import STRtree
 
 from masklayout.model.geometry import Polygon
@@ -47,15 +48,7 @@ class SpatialIndex:
         self, minx_um: float, miny_um: float, maxx_um: float, maxy_um: float
     ) -> list[int]:
         """Indices of polygons whose bounding boxes meet the given box."""
-        box = ShapelyPolygon(
-            [
-                (minx_um, miny_um),
-                (maxx_um, miny_um),
-                (maxx_um, maxy_um),
-                (minx_um, maxy_um),
-            ]
-        )
-        return self._query(box)
+        return self._query(self._box(minx_um, miny_um, maxx_um, maxy_um))
 
     def query_ray(
         self,
@@ -65,6 +58,35 @@ class SpatialIndex:
     ) -> list[int]:
         """Indices of polygons whose bounding boxes meet the ray."""
         return self._query(self._ray(origin_um, direction_um, length_um))
+
+    def covered_fraction(
+        self, minx_um: float, miny_um: float, maxx_um: float, maxy_um: float
+    ) -> float:
+        """Fraction of the window's area covered by indexed polygons.
+
+        This is pattern density in its usual sense — covered area over window
+        area. Overlapping polygons are unioned first so coverage cannot exceed
+        one by double-counting.
+        """
+        window = self._box(minx_um, miny_um, maxx_um, maxy_um)
+        if window.area <= 0.0:
+            return 0.0
+        pieces = [window.intersection(self._geometries[index]) for index in self._query(window)]
+        pieces = [piece for piece in pieces if not piece.is_empty]
+        if not pieces:
+            return 0.0
+        return float(unary_union(pieces).area / window.area)
+
+    @staticmethod
+    def _box(minx_um: float, miny_um: float, maxx_um: float, maxy_um: float) -> ShapelyPolygon:
+        return ShapelyPolygon(
+            [
+                (minx_um, miny_um),
+                (maxx_um, miny_um),
+                (maxx_um, maxy_um),
+                (minx_um, maxy_um),
+            ]
+        )
 
     @staticmethod
     def _ray(
