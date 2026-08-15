@@ -871,7 +871,9 @@ import gdstk
 from masklayout.config import TechConfig
 
 BooleanOperation = Literal["or", "and", "xor", "not"]
-JoinStyle = Literal["natural", "miter", "bevel", "round", "smooth"]
+#: Join styles accepted by ``gdstk.offset``. Narrower than FlexPath's join
+#: styles: "natural" and "smooth" are path joins and are rejected here.
+JoinStyle = Literal["miter", "bevel", "round"]
 
 #: Default pinned timestamp. GDSII embeds a header timestamp that would
 #: otherwise make output non-reproducible between runs.

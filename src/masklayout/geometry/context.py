@@ -1,0 +1,106 @@
+"""The single boundary between masklayout and gdstk.
+
+This is the only module in the package permitted to import gdstk, enforced
+by tests/test_architecture.py.
+
+It exists because gdstk's defaults silently override configuration:
+``boolean`` and ``offset`` default to ``precision=1e-3``, and ``write_gds``
+defaults to ``max_points=199``. Calling gdstk directly anywhere else would
+quietly substitute those for the configured grid and fracture limit.
+"""
+
+from __future__ import annotations
+
+import datetime
+from pathlib import Path
+from typing import Literal
+
+import gdstk
+
+from masklayout.config import TechConfig
+
+BooleanOperation = Literal["or", "and", "xor", "not"]
+#: Join styles accepted by ``gdstk.offset``. Narrower than FlexPath's join
+#: styles: "natural" and "smooth" are path joins and are rejected here.
+JoinStyle = Literal["miter", "bevel", "round"]
+
+#: Default pinned timestamp. GDSII embeds a header timestamp that would
+#: otherwise make output non-reproducible between runs.
+PINNED_TIMESTAMP = datetime.datetime(1970, 1, 1)
+
+#: GDSII user unit: 1 micrometre.
+USER_UNIT_M = 1e-6
+
+
+class GeomContext:
+    """Carries the configured precision and fracture limit into every gdstk call."""
+
+    def __init__(self, tech: TechConfig, timestamp: datetime.datetime | None = None) -> None:
+        self._tech = tech
+        self._timestamp = PINNED_TIMESTAMP if timestamp is None else timestamp
+
+    @property
+    def tech(self) -> TechConfig:
+        return self._tech
+
+    @property
+    def precision_um(self) -> float:
+        """The design grid, in micrometres."""
+        return self._tech.precision_um
+
+    def boolean(
+        self,
+        operand1: gdstk.Polygon | list[gdstk.Polygon],
+        operand2: gdstk.Polygon | list[gdstk.Polygon],
+        operation: BooleanOperation,
+    ) -> list[gdstk.Polygon]:
+        """Boolean operation at the configured grid.
+
+        Because precision equals the design grid, the result is grid-aligned
+        by construction and needs no separate snapping pass.
+        """
+        return gdstk.boolean(operand1, operand2, operation, precision=self.precision_um)
+
+    def offset(
+        self,
+        polygons: gdstk.Polygon | list[gdstk.Polygon],
+        distance_um: float,
+        join: JoinStyle = "miter",
+        tolerance: int = 2,
+        use_union: bool = True,
+    ) -> list[gdstk.Polygon]:
+        """Dilate (positive distance) or erode (negative) at the configured grid."""
+        return gdstk.offset(
+            polygons,
+            distance_um,
+            join=join,
+            tolerance=tolerance,
+            precision=self.precision_um,
+            use_union=use_union,
+        )
+
+    def fracture(self, polygon: gdstk.Polygon) -> list[gdstk.Polygon]:
+        """Split a polygon to the configured vertex limit."""
+        return polygon.fracture(
+            max_points=self._tech.fracture_vertex_limit,
+            precision=self.precision_um,
+        )
+
+    def new_library(self, name: str) -> gdstk.Library:
+        """A library whose database precision matches the design grid."""
+        return gdstk.Library(name, unit=USER_UNIT_M, precision=self._tech.precision_m)
+
+    def write_gds(self, library: gdstk.Library, path: Path | str) -> None:
+        """Write GDSII with the configured vertex limit and a pinned timestamp."""
+        library.write_gds(
+            path,
+            max_points=self._tech.fracture_vertex_limit,
+            timestamp=self._timestamp,
+        )
+
+    def write_oas(self, library: gdstk.Library, path: Path | str) -> None:
+        """Write OASIS.
+
+        OASIS carries no timestamp, so output is reproducible without one.
+        """
+        library.write_oas(path)
