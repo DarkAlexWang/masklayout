@@ -7,6 +7,9 @@ into a public signature.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import cast
+
 import gdstk
 import numpy as np
 from numpy.typing import NDArray
@@ -27,7 +30,7 @@ from masklayout.model.cell import (
 )
 from masklayout.model.geometry import Label, Polygon
 from masklayout.model.layers import LayerMap
-from masklayout.model.layout import Layout
+from masklayout.model.layout import Layout, UnknownCellError
 
 #: Maximum acceptable deviation, in grid units, before a coordinate counts as
 #: off-grid. Generous enough for float64 division noise, tight enough to catch
@@ -183,3 +186,79 @@ def library_to_layout(
         top_cells=tuple(layout.top_cells()),
     )
     return layout, report
+
+
+def _model_repetition_to_gdstk(
+    repetition: Repetition | None, precision_um: float
+) -> gdstk.Repetition | None:
+    if repetition is None:
+        return None
+    if isinstance(repetition, RectangularRepetition):
+        spacing = dbu_to_um(np.array(repetition.spacing_dbu, dtype=np.int64), precision_um)
+        return gdstk.Repetition(
+            columns=repetition.columns,
+            rows=repetition.rows,
+            spacing=(float(spacing[0]), float(spacing[1])),
+        )
+    offsets = dbu_to_um(repetition.offsets_dbu(), precision_um)
+    return gdstk.Repetition(offsets=[tuple(row) for row in offsets.tolist()])
+
+
+def layout_to_library(layout: Layout) -> gdstk.Library:
+    """Build a gdstk library from the typed model.
+
+    Cells are emitted in sorted name order and their contents in stored
+    order, so output is deterministic for identical input.
+    """
+    precision_um = layout.tech.precision_um
+    library = gdstk.Library(layout.name, unit=_EXPECTED_UNIT_M, precision=layout.tech.precision_m)
+
+    built: dict[str, gdstk.Cell] = {name: library.new_cell(name) for name in sorted(layout.cells)}
+
+    for name in sorted(layout.cells):
+        cell = layout.cells[name]
+        gcell = built[name]
+
+        for poly in cell.polygons:
+            gcell.add(
+                gdstk.Polygon(
+                    # gdstk accepts an (N, 2) array here — its documentation says
+                    # "array-like[N][2]" — but the stub declares only a Sequence of
+                    # tuples. Cast rather than materialise a list of tuples, which
+                    # would cost an allocation per vertex at million-polygon scale.
+                    cast("Sequence[tuple[float, float]]", dbu_to_um(poly.points, precision_um)),
+                    layer=poly.layer,
+                    datatype=poly.datatype,
+                )
+            )
+
+        for label in cell.labels:
+            origin = dbu_to_um(np.array(label.origin_dbu, dtype=np.int64), precision_um)
+            gcell.add(
+                gdstk.Label(
+                    label.text,
+                    (float(origin[0]), float(origin[1])),
+                    layer=label.layer,
+                    texttype=label.datatype,
+                )
+            )
+
+        for ref in cell.references:
+            if ref.cell_name not in built:
+                raise UnknownCellError(f"cell {name!r} references unknown cell {ref.cell_name!r}")
+            origin = dbu_to_um(np.array(ref.origin_dbu, dtype=np.int64), precision_um)
+            greference = gdstk.Reference(
+                built[ref.cell_name],
+                (float(origin[0]), float(origin[1])),
+                rotation=ref.rotation_rad,
+                magnification=ref.magnification,
+                x_reflection=ref.x_reflection,
+            )
+            # A fresh Reference already has no repetition, so only assign a real
+            # one: gdstk's setter is typed as non-optional.
+            gdstk_repetition = _model_repetition_to_gdstk(ref.repetition, precision_um)
+            if gdstk_repetition is not None:
+                greference.repetition = gdstk_repetition
+            gcell.add(greference)
+
+    return library

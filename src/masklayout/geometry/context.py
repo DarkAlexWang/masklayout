@@ -90,6 +90,14 @@ class GeomContext:
         """A library whose database precision matches the design grid."""
         return gdstk.Library(name, unit=USER_UNIT_M, precision=self._tech.precision_m)
 
+    def read_gds(self, path: Path | str) -> gdstk.Library:
+        """Read a GDSII stream into a gdstk library."""
+        return gdstk.read_gds(path)
+
+    def read_oas(self, path: Path | str) -> gdstk.Library:
+        """Read an OASIS stream into a gdstk library."""
+        return gdstk.read_oas(path)
+
     def write_gds(self, library: gdstk.Library, path: Path | str) -> None:
         """Write GDSII with the configured vertex limit and a pinned timestamp."""
         library.write_gds(
