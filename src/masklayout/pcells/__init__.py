@@ -4,7 +4,7 @@ Importing the submodules is what populates the registry, so this module's
 import list grows as PCell modules are added.
 """
 
-from masklayout.pcells import shapes  # noqa: F401  (import registers its PCells)
+from masklayout.pcells import shapes, wires  # noqa: F401  (import registers its PCells)
 from masklayout.pcells.base import (
     PCellParams,
     UnknownPCellError,
