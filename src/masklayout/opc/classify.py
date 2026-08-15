@@ -77,6 +77,12 @@ def classify_sites(
     same polygon; space casts outward to the nearest other polygon. Both are
     exact at any angle, which is why no Manhattan special case exists here.
 
+    At a **line end** width is the end edge's own length, not an inward cast:
+    the width of a terminating line is measured across the line, and casting
+    inward from the end would measure how long the line runs instead. Both
+    readings are "the feature's width perpendicular to its long axis"; only
+    the computation differs with which edge you are standing on.
+
     ``width_nm`` and ``space_nm`` distinguish two different absences:
 
     * ``None`` -- the measurement does not apply here. A corner has no width
@@ -102,18 +108,25 @@ def classify_sites(
         width_nm: float | None = None
         space_nm: float | None = None
         if on_edge:
-            inward = (-site.outward_normal_um[0], -site.outward_normal_um[1])
-            width_um = index.nearest_distance_um(
-                site.midpoint_um, inward, max_probe_um, exclude=None
-            )
             space_um = index.nearest_distance_um(
                 site.midpoint_um,
                 site.outward_normal_um,
                 max_probe_um,
                 exclude=site.polygon_index,
             )
-            width_nm = math.inf if width_um is None else width_um * 1000.0
             space_nm = math.inf if space_um is None else space_um * 1000.0
+
+            if site.kind == "line_end":
+                # At a line end, the feature's width is the width of the line
+                # that terminates here, which is the end edge's own length.
+                # Casting inward would measure the line's run instead.
+                width_nm = site.edge_length_um * 1000.0
+            else:
+                inward = (-site.outward_normal_um[0], -site.outward_normal_um[1])
+                width_um = index.nearest_distance_um(
+                    site.midpoint_um, inward, max_probe_um, exclude=None
+                )
+                width_nm = math.inf if width_um is None else width_um * 1000.0
 
         half = density_window_um / 2.0
         density = index.covered_fraction(

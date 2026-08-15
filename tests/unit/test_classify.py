@@ -130,9 +130,14 @@ def test_corner_measurements_carry_no_width_or_space() -> None:
             assert measurement.space_nm is None
 
 
-def test_line_ends_are_measured_like_edges() -> None:
+def test_line_end_width_is_the_width_of_the_terminating_line() -> None:
+    """Not the inward cast, which would measure how far the line runs.
+
+    A 2000 x 100 nm bar has 100 nm wide line ends. An earlier version cast
+    inward and reported 2000 -- the bar's length -- which meant a deck rule
+    saying "hammerhead on a 100 nm line end" never fired.
+    """
     line_ends = [m for m in _measure([_bar(2000, 100, 0.0)]) if m.site.kind == "line_end"]
     assert len(line_ends) == 2
     for measurement in line_ends:
-        # A line end's inward cast runs the length of the bar, not its width.
-        assert measurement.width_nm == pytest.approx(2000.0, abs=2.0)
+        assert measurement.width_nm == pytest.approx(100.0, abs=1.0)
