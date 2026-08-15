@@ -475,7 +475,11 @@ def test_precision_properties_convert_grid_correctly() -> None:
 
 def test_mrc_deburr_derives_from_half_the_design_grid() -> None:
     assert TechConfig(design_grid_nm=1.0).effective_mrc_deburr_nm == pytest.approx(0.5)
-    assert TechConfig(design_grid_nm=0.4).effective_mrc_deburr_nm == pytest.approx(0.2)
+    # A finer grid needs a mask grid it divides exactly: 4 * 0.4 / 0.4 == 4.
+    # Passing design_grid_nm=0.4 alone is INVALID against the default
+    # mask_grid_nm=0.5, because 4 * 0.4 / 0.5 == 3.2.
+    finer = TechConfig(design_grid_nm=0.4, mask_grid_nm=0.4)
+    assert finer.effective_mrc_deburr_nm == pytest.approx(0.2)
 
 
 def test_mrc_deburr_override_is_respected() -> None:
