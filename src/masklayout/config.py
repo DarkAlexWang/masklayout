@@ -39,6 +39,7 @@ class TechConfig(BaseModel):
     # Cleanup thresholds.
     min_polygon_area_nm2: float = Field(default=4.0, ge=0)
     min_edge_length_nm: float = Field(default=1.0, ge=0)
+    remove_collinear_tolerance_nm: float = Field(default=0.001, ge=0)
 
     # Export.
     fracture_vertex_limit: int = Field(default=4000, ge=4)
@@ -96,3 +97,8 @@ class TechConfig(BaseModel):
     def precision_m(self) -> float:
         """Design grid in metres, for the gdstk Library precision."""
         return self.design_grid_nm * 1e-9
+
+    @property
+    def remove_collinear_tolerance_um(self) -> float:
+        """Collinearity tolerance in micrometres."""
+        return self.remove_collinear_tolerance_nm / 1000.0
