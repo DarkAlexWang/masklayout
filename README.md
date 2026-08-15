@@ -8,11 +8,13 @@ target GDS with deterministic rule-based OPC-like corrections — hammerheads, s
 jogs, line-end extensions, local bias, SRAFs — and exports both engineering (1×) and
 mask (×4, tone-applied) streams.
 
-> **Status: design complete, implementation not started.**
-> There is no working code in this repository yet. The design is specified in
-> [`docs/superpowers/specs/2026-08-14-masklayout-v1-design.md`](docs/superpowers/specs/2026-08-14-masklayout-v1-design.md),
-> and implementation begins at M0 (see [Milestones](#milestones)). Nothing below
-> describes software you can run today.
+> **Status: M0 complete. Early development.**
+> The foundations are in place and tested — configuration, layer map, and the
+> `GeomContext` boundary that owns every geometry call. **No OPC algorithms exist
+> yet.** The design is specified in
+> [`docs/superpowers/specs/2026-08-14-masklayout-v1-design.md`](docs/superpowers/specs/2026-08-14-masklayout-v1-design.md);
+> everything described below as a capability is planned, not delivered, except where
+> the milestone table marks it complete.
 
 ## What it is, and what it is not
 
@@ -76,7 +78,7 @@ vocabulary, so whatever `classify` measures is exactly what a rule can select on
 
 | M | Deliverable | Status |
 |---|---|---|
-| M0 | Project skeleton and CI | not started |
+| M0 | Project skeleton and CI | **complete** |
 | M1 | GDS/OASIS I/O and hierarchy | not started |
 | M2 | Geometry compiler | not started |
 | M3 | PCell library | not started |
@@ -98,13 +100,11 @@ The public API is kept independent of `gdstk` types.
 
 ## Development
 
-Once M0 lands:
-
 ```bash
 uv sync
 uv run pytest
 uv run ruff check .
-uv run mypy src
+uv run mypy src tests
 ```
 
 ## License
