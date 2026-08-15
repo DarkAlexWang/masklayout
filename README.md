@@ -8,10 +8,11 @@ target GDS with deterministic rule-based OPC-like corrections — hammerheads, s
 jogs, line-end extensions, local bias, SRAFs — and exports both engineering (1×) and
 mask (×4, tone-applied) streams.
 
-> **Status: M1 complete. Early development.**
-> Configuration, layer map, the `GeomContext` geometry boundary, and GDSII/OASIS
-> import and export with preserved hierarchy are in place and tested. **No OPC
-> algorithms exist yet.** The design is specified in
+> **Status: M2 complete. Early development.**
+> Configuration, layer map, the `GeomContext` geometry boundary, GDSII/OASIS import
+> and export with preserved hierarchy, and the geometry compiler — curve tessellation
+> and grid-aligned integer polygons with measured error — are in place and tested.
+> **No OPC algorithms exist yet.** The design is specified in
 > [`docs/superpowers/specs/2026-08-14-masklayout-v1-design.md`](docs/superpowers/specs/2026-08-14-masklayout-v1-design.md);
 > everything described below as a capability is planned, not delivered, except where
 > the milestone table marks it complete.
@@ -80,7 +81,7 @@ vocabulary, so whatever `classify` measures is exactly what a rule can select on
 |---|---|---|
 | M0 | Project skeleton and CI | **complete** |
 | M1 | GDS/OASIS I/O and hierarchy | **complete** |
-| M2 | Geometry compiler | not started |
+| M2 | Geometry compiler | **complete** |
 | M3 | PCell library | not started |
 | M4 | Extraction, classification, rule deck | not started |
 | M5 | Target decorator | not started |
