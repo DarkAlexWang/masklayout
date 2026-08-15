@@ -116,7 +116,7 @@ merged to a clean 8-vertex polygon with zero sub-1 nm edges under snap-then-unio
 union-then-snap, and overlap-then-union alike. That parameter and that ordering are
 deleted.
 
-### GeomContext: the one place gdstk is called
+### The gdstk boundary
 
 gdstk's defaults silently override configuration:
 
@@ -126,9 +126,20 @@ gdstk's defaults silently override configuration:
   `fracture_vertex_limit`.
 
 Both violate the rule that the grid and fracture limit are never silently altered.
-Mitigation: a single `GeomContext` carries `precision` and `max_points`, and every
-gdstk call routes through it. A test asserts that no module imports `gdstk` directly
-except `geometry/context.py`.
+Mitigation: gdstk is confined to a **closed, explicitly listed allowlist of modules**,
+enforced by an AST-based test that fails naming any other module which imports it.
+
+| Module | Responsibility |
+|---|---|
+| `geometry/context.py` | `GeomContext` — carries `precision` and `max_points` into every geometry operation, and owns the pinned write timestamp |
+| `io/_gdstk_bridge.py` | Structural conversion between the typed model and `gdstk.Library` (M1 onward) |
+
+The allowlist began as `geometry/context.py` alone. `io/_gdstk_bridge.py` was added at
+M1 because reading and writing streams requires constructing `gdstk.Polygon`, `Cell`,
+and `Reference` objects; folding that into `GeomContext` would give one module two
+unrelated responsibilities. The enforceable property is that the list is closed,
+explicit, and tested — not that it has exactly one entry. Adding an entry is a design
+change requiring the same scrutiny as this one.
 
 ---
 
