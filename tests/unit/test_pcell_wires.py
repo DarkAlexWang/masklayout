@@ -61,7 +61,7 @@ def test_bezier_wire_width_is_respected_at_the_start() -> None:
         10,
         0,
     )
-    low_x, low_y, high_x, high_y = polys[0].bounds_dbu
+    _, low_y, _, high_y = polys[0].bounds_dbu
     assert high_y - low_y == 500  # 0.5 um at a 1 nm grid
 
 
