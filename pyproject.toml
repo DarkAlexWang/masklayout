@@ -1,0 +1,51 @@
+[project]
+name = "masklayout"
+version = "0.1.0"
+description = "Recipe-driven computational mask-layout toolkit for semiconductor lithography masks"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+authors = [{ name = "Alex Wang", email = "wangzhihuan0815@gmail.com" }]
+dependencies = [
+    "gdstk>=1.0.1",
+    "numpy>=2.0",
+    "pydantic>=2.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/masklayout"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+# Prose docs contain illustrative Python snippets; ruff formats fenced code
+# blocks in Markdown, which would couple the design docs to formatter style.
+extend-exclude = ["docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
