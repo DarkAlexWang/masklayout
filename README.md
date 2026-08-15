@@ -8,12 +8,11 @@ target GDS with deterministic rule-based OPC-like corrections — hammerheads, s
 jogs, line-end extensions, local bias, SRAFs — and exports both engineering (1×) and
 mask (×4, tone-applied) streams.
 
-> **Status: M3 complete. Early development.**
-> Configuration, layer map, the `GeomContext` geometry boundary, GDSII/OASIS import
-> and export with preserved hierarchy, the geometry compiler, and a PCell library for
-> authoring curvilinear wires, line ends, contacts, and hierarchical arrays from
-> scratch are in place and tested. **No OPC algorithms exist yet.** The design is
-> specified in
+> **Status: M4 complete. Early development.**
+> Everything through site extraction, the selector vocabulary, and the declarative
+> rule deck is in place and tested: a target layout can be extracted, classified, and
+> matched against rules. **Correction geometry is not generated yet** — M4 produces
+> matches, not shapes; that is M5. The design is specified in
 > [`docs/superpowers/specs/2026-08-14-masklayout-v1-design.md`](docs/superpowers/specs/2026-08-14-masklayout-v1-design.md);
 > everything described below as a capability is planned, not delivered, except where
 > the milestone table marks it complete.
@@ -84,7 +83,7 @@ vocabulary, so whatever `classify` measures is exactly what a rule can select on
 | M1 | GDS/OASIS I/O and hierarchy | **complete** |
 | M2 | Geometry compiler | **complete** |
 | M3 | PCell library | **complete** |
-| M4 | Extraction, classification, rule deck | not started |
+| M4 | Extraction, classification, rule deck | **complete** |
 | M5 | Target decorator | not started |
 | M6 | SRAF engine | not started |
 | M7 | Verification and reporting | not started |
