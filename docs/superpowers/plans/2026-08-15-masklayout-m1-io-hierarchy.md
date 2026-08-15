@@ -537,7 +537,7 @@ def test_um_to_dbu_tolerates_float_representation_error() -> None:
 
 
 def test_um_to_dbu_rejects_genuinely_off_grid_coordinates() -> None:
-    with pytest.raises(OffGridCoordinateError, match="0.0005"):
+    with pytest.raises(OffGridCoordinateError, match=r"0\.0005"):
         um_to_dbu(np.array([[0.0005, 0.0]], dtype=np.float64), precision_um=0.001)
 
 

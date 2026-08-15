@@ -4,7 +4,9 @@ import ast
 from pathlib import Path
 
 SRC = Path(__file__).parent.parent / "src" / "masklayout"
-ALLOWED = {"geometry/context.py"}
+# The gdstk boundary is a closed, explicit allowlist — see the design document,
+# section "The gdstk boundary". Adding an entry is a design change.
+ALLOWED = {"geometry/context.py", "io/_gdstk_bridge.py"}
 
 
 def _imports_gdstk(tree: ast.AST) -> bool:
