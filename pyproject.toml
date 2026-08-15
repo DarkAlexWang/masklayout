@@ -10,6 +10,7 @@ dependencies = [
     "gdstk>=1.0.1",
     "numpy>=2.0",
     "pydantic>=2.7",
+    "shapely>=2.0",
 ]
 
 [build-system]
@@ -49,3 +50,8 @@ files = ["src", "tests"]
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
+
+# shapely ships no py.typed marker, so strict mode cannot resolve its types.
+[[tool.mypy.overrides]]
+module = ["shapely.*"]
+ignore_missing_imports = true
