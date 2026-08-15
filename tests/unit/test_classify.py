@@ -76,8 +76,16 @@ def test_space_to_a_neighbour_is_measured_at_any_angle(angle_deg: float) -> None
     assert min(spaces) == pytest.approx(60.0, abs=1.5)
 
 
-def test_space_is_none_for_an_isolated_feature() -> None:
-    assert all(m.space_nm is None for m in _measure([_bar(2000, 100, 0.0)]))
+def test_space_is_infinite_for_an_isolated_feature() -> None:
+    """Isolated means unbounded space, not absent space.
+
+    A rule saying ``space_nm: {min: 120}`` is the definition of isolated, so
+    an isolated edge must satisfy it. Reporting None here would make the
+    feature fail the very selector that describes it.
+    """
+    edges = [m for m in _measure([_bar(2000, 100, 0.0)]) if m.site.kind in ("edge", "line_end")]
+    assert edges
+    assert all(m.space_nm == math.inf for m in edges)
 
 
 def test_edge_length_is_reported_in_nanometres() -> None:
@@ -115,6 +123,7 @@ def test_every_measurement_exposes_the_full_vocabulary() -> None:
 
 
 def test_corner_measurements_carry_no_width_or_space() -> None:
+    """A corner's width and space are None -- not applicable, not unbounded."""
     for measurement in _measure([_bar(2000, 100, 0.0)]):
         if measurement.site.kind.endswith("corner"):
             assert measurement.width_nm is None

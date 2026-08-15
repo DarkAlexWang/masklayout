@@ -1,0 +1,55 @@
+# Generic hammerhead rule deck.
+#
+# These are software example values, not foundry or process-node rules. Every
+# threshold is illustrative and must be replaced for real work.
+#
+# Selectors are drawn from the closed vocabulary measured by
+# masklayout.opc.classify: site, width_nm, space_nm, edge_length_nm,
+# angle_deg, corner_type, curvature_1_per_um, local_density. An omitted key is
+# unconstrained. A deck naming any other key fails at load.
+
+deck:
+  id: generic_hammerhead_v1
+  version: 1.0.0
+
+rules:
+  # Isolated line ends get the larger correction. "Isolated" is a minimum
+  # space constraint, which an unbounded (infinite) space satisfies.
+  - id: hh_isolated_line_end
+    priority: 10
+    kind: hammerhead
+    when:
+      site: line_end
+      width_nm: {min: 60, max: 140}
+      space_nm: {min: 120}
+    apply:
+      pcell: line_end
+      params:
+        extension_um: 0.028
+        corner_radius_um: 0.002
+
+  # Dense line ends get a smaller one; neighbours already push the end out.
+  - id: hh_dense_line_end
+    priority: 20
+    kind: hammerhead
+    when:
+      site: line_end
+      width_nm: {min: 60, max: 140}
+      space_nm: {max: 80}
+    apply:
+      pcell: line_end
+      params:
+        extension_um: 0.014
+
+  # A different kind, so it composes with a hammerhead on the same site
+  # rather than competing with it.
+  - id: bias_narrow_edge
+    priority: 30
+    kind: edge_bias
+    when:
+      site: edge
+      width_nm: {max: 140}
+    apply:
+      pcell: rounded_rect
+      params:
+        radius_um: 0.002

@@ -8,6 +8,7 @@ a rule can never reach past it.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -76,9 +77,17 @@ def classify_sites(
     same polygon; space casts outward to the nearest other polygon. Both are
     exact at any angle, which is why no Manhattan special case exists here.
 
-    ``None`` means "not measurable at this site" -- a corner has no width, and
-    an isolated feature has no space. A selector constraining a None value
-    never matches, rather than matching vacuously.
+    ``width_nm`` and ``space_nm`` distinguish two different absences:
+
+    * ``None`` -- the measurement does not apply here. A corner has no width
+      and no space. A selector constraining it never matches.
+    * ``math.inf`` -- the measurement applies but found nothing within
+      ``max_probe_um``. An isolated edge has unbounded space. A selector
+      saying ``space_nm: {min: 120}`` -- which is what "isolated" means --
+      correctly matches it, and one saying ``{max: 60}`` correctly does not.
+
+    Collapsing both onto ``None`` would make an isolated feature fail the very
+    selector that describes it.
 
     ``local_density`` is pattern density: covered area over window area. An
     earlier draft used a count of neighbours over the total polygon count,
@@ -90,8 +99,8 @@ def classify_sites(
 
     for site in sites:
         on_edge = site.kind in _EDGE_KINDS
-        width_um = None
-        space_um = None
+        width_nm: float | None = None
+        space_nm: float | None = None
         if on_edge:
             inward = (-site.outward_normal_um[0], -site.outward_normal_um[1])
             width_um = index.nearest_distance_um(
@@ -103,6 +112,8 @@ def classify_sites(
                 max_probe_um,
                 exclude=site.polygon_index,
             )
+            width_nm = math.inf if width_um is None else width_um * 1000.0
+            space_nm = math.inf if space_um is None else space_um * 1000.0
 
         half = density_window_um / 2.0
         density = index.covered_fraction(
@@ -115,8 +126,8 @@ def classify_sites(
         measurements.append(
             SiteMeasurement(
                 site=site,
-                width_nm=None if width_um is None else width_um * 1000.0,
-                space_nm=None if space_um is None else space_um * 1000.0,
+                width_nm=width_nm,
+                space_nm=space_nm,
                 edge_length_nm=site.edge_length_um * 1000.0,
                 angle_deg=site.angle_deg,
                 corner_type=site.corner_type,
