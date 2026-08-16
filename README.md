@@ -8,15 +8,16 @@ target GDS with deterministic rule-based OPC-like corrections — hammerheads, s
 jogs, line-end extensions, local bias, SRAFs — and exports both engineering (1×) and
 mask (×4, tone-applied) streams.
 
-> **Status: M8 complete. Early development.**
+> **Status: M9 complete — all V1 milestones delivered except `jog`.**
 > The OPC path runs end to end: a target layout is extracted, classified, matched
 > against a declarative rule deck, and **corrected** — hammerheads, line-end extensions,
 > serifs, and edge bias are generated and merged into `POST_OPC`, and rule-constrained
 > SRAFs are placed on their own layer with keep-out enforcement and reported
 > rejections. Geometry is verified (structural checks and MRC), violations are marked,
 > and a JSON manifest plus an SVG preview are written. Mask data exports at x4 with
-> tone inversion against a declared field and post-inversion MRC. `jog` and the
-> regression corpus are not implemented. The design is specified in
+> tone inversion against a declared field and post-inversion MRC, and a golden
+> regression corpus covers twelve pattern classes. `jog` and edge fragmentation remain
+> unimplemented. The design is specified in
 > [`docs/superpowers/specs/2026-08-14-masklayout-v1-design.md`](docs/superpowers/specs/2026-08-14-masklayout-v1-design.md);
 > everything described below as a capability is planned, not delivered, except where
 > the milestone table marks it complete.
@@ -92,7 +93,7 @@ vocabulary, so whatever `classify` measures is exactly what a rule can select on
 | M6 | SRAF engine | **complete** |
 | M7 | Verification and reporting | **complete** (SVG; no PNG) |
 | M8 | Mask export (×4, tone inversion) | **complete** |
-| M9 | Regression corpus | not started |
+| M9 | Regression corpus | **complete** |
 
 ## Technology
 
@@ -243,19 +244,19 @@ Four independent checks. Run them separately and read each result; chaining them
 `&&` lets an earlier failure hide behind a later success.
 
 ```bash
-uv run pytest -q                      # 322 tests
+uv run pytest -q                      # 364 tests
 uv run ruff check .                   # lint
 uv run ruff format --check .          # formatting
-uv run mypy src tests examples        # strict type checking, 80 files
+uv run mypy src tests examples        # strict type checking, 87 files
 ```
 
 Expected output:
 
 ```
-322 passed in 0.59s
+364 passed in 0.71s
 All checks passed!
 66 files already formatted
-Success: no issues found in 80 source files
+Success: no issues found in 87 source files
 ```
 
 CI runs exactly these four on every push and pull request.
@@ -281,6 +282,19 @@ uv run pytest tests/test_architecture.py -v
 
 # End-to-end: authoring, and context-driven rule selection.
 uv run pytest tests/integration/ -v
+
+# The golden corpus: twelve pattern classes through the full pipeline.
+uv run pytest tests/regression/ -v
+```
+
+### Regenerating goldens
+
+Golden records are counts and statistics, never coordinates, so a failure says *what*
+changed. Regeneration is explicit and never automatic — a corpus that silently rewrites
+its own expectations tests nothing:
+
+```bash
+MASKLAYOUT_REGENERATE_GOLDENS=1 uv run pytest tests/regression/
 ```
 
 ### Reproducibility

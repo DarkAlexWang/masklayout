@@ -1,0 +1,55 @@
+{
+  "deck": {
+    "id": "generic_hammerhead_v1",
+    "version": "1.0.0"
+  },
+  "features": {
+    "edge_bias": 4,
+    "hammerhead": 4
+  },
+  "geometry": {
+    "OVERLAY_ADD": {
+      "area_nm2": 24392,
+      "polygons": 2,
+      "vertices": 36
+    },
+    "OVERLAY_REMOVE": {
+      "area_nm2": 0,
+      "polygons": 0,
+      "vertices": 0
+    },
+    "POST_OPC": {
+      "area_nm2": 424392,
+      "polygons": 2,
+      "vertices": 28
+    },
+    "SRAF": {
+      "area_nm2": 0,
+      "polygons": 0,
+      "vertices": 0
+    },
+    "TARGET": {
+      "area_nm2": 400000,
+      "polygons": 2,
+      "vertices": 8
+    }
+  },
+  "matches": {
+    "by_rule": {
+      "bias_narrow_edge": 4,
+      "hh_dense_line_end": 2,
+      "hh_isolated_line_end": 2
+    },
+    "matched": 8,
+    "unmatched": 8
+  },
+  "pattern": "line_ends_manhattan",
+  "sites": {
+    "convex_corner": 8,
+    "edge": 4,
+    "line_end": 4
+  },
+  "violations": {
+    "min_space": 1
+  }
+}

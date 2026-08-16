@@ -33,6 +33,8 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
+# The regression corpus imports its fixture generators as a package.
+pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100
