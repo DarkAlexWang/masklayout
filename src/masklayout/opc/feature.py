@@ -12,9 +12,11 @@ from typing import Any, Literal
 
 from masklayout.model.geometry import Polygon
 
-#: Whether a correction adds material or removes it. Negative edge bias is
-#: the first correction that removes, so polarity cannot be assumed.
-Polarity = Literal["add", "subtract"]
+#: What a feature does to the pattern. "add" and "subtract" modify the main
+#: pattern and are merged into POST_OPC; "assist" does neither — an assist
+#: feature lives on its own layer, because the design treats SRAFs as
+#: geometry distinct from POST_OPC.
+Polarity = Literal["add", "subtract", "assist"]
 
 
 @dataclass(frozen=True, eq=False)

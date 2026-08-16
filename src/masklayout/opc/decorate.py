@@ -22,6 +22,7 @@ from masklayout.opc.extract import extract_sites
 from masklayout.opc.feature import Feature
 from masklayout.opc.generate import UnknownCorrectionKindError, generate_feature
 from masklayout.opc.match import match_sites
+from masklayout.opc.resolve import Rejection, resolve_collisions
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,8 @@ class DecorateReport:
     matched: int
     features_generated: int
     features_skipped: int
+    srafs_placed: int = 0
+    srafs_rejected: int = 0
     unknown_kinds: tuple[str, ...] = ()
     by_kind: dict[str, int] = field(default_factory=dict)
 
@@ -44,6 +47,8 @@ class DecorateReport:
         if self.by_kind:
             detail = ", ".join(f"{kind} x{count}" for kind, count in sorted(self.by_kind.items()))
             parts.append(f"({detail})")
+        if self.srafs_placed or self.srafs_rejected:
+            parts.append(f"{self.srafs_placed} SRAFs placed, {self.srafs_rejected} rejected")
         if self.features_skipped:
             parts.append(f"{self.features_skipped} no-ops")
         if self.unknown_kinds:
@@ -60,6 +65,9 @@ class DecorateResult:
     overlay_add: list[Polygon]
     overlay_remove: list[Polygon]
     report: DecorateReport
+    srafs: list[Polygon] = field(default_factory=list)
+    markers: list[Polygon] = field(default_factory=list)
+    rejected: list[Rejection] = field(default_factory=list)
 
 
 def decorate(
@@ -71,6 +79,8 @@ def decorate(
     max_probe_um: float = 2.0,
     density_window_um: float = 1.0,
     skip_unknown_kinds: bool = False,
+    target_keepout_um: float = 0.02,
+    sraf_keepout_um: float = 0.02,
 ) -> DecorateResult:
     """Extract, classify, match, generate, and merge.
 
@@ -113,9 +123,14 @@ def decorate(
         features.append(feature)
         by_kind[feature.kind] = by_kind.get(feature.kind, 0) + 1
 
+    features, rejections = resolve_collisions(
+        features, target, tech, target_keepout_um, sraf_keepout_um
+    )
+
     context = GeomContext(tech)
     additive = [p for f in features if f.polarity == "add" for p in f.polygons]
     subtractive = [p for f in features if f.polarity == "subtract" for p in f.polygons]
+    assists = [f for f in features if f.polarity == "assist"]
 
     merged = list(target)
     if additive:
@@ -138,11 +153,26 @@ def decorate(
         list(target), merged, "not", overlay_remove_layer.number, overlay_remove_layer.datatype
     )
 
+    sraf_layer = layers["SRAF"]
+    srafs = [
+        Polygon(points=p.points, layer=sraf_layer.number, datatype=sraf_layer.datatype)
+        for f in assists
+        for p in f.polygons
+    ]
+    marker_layer = layers["DEBUG_MARKERS"]
+    markers = [
+        Polygon(points=p.points, layer=marker_layer.number, datatype=marker_layer.datatype)
+        for rejection in rejections
+        for p in rejection.polygons
+    ]
+
     report = DecorateReport(
         sites=len(sites),
         matched=match_report.matched,
         features_generated=len(features),
         features_skipped=skipped,
+        srafs_placed=len(assists),
+        srafs_rejected=len(rejections),
         unknown_kinds=tuple(unknown),
         by_kind=by_kind,
     )
@@ -152,4 +182,7 @@ def decorate(
         overlay_add=overlay_add,
         overlay_remove=overlay_remove,
         report=report,
+        srafs=srafs,
+        markers=markers,
+        rejected=rejections,
     )

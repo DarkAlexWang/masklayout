@@ -8,11 +8,12 @@ target GDS with deterministic rule-based OPC-like corrections — hammerheads, s
 jogs, line-end extensions, local bias, SRAFs — and exports both engineering (1×) and
 mask (×4, tone-applied) streams.
 
-> **Status: M5 complete. Early development.**
+> **Status: M6 complete. Early development.**
 > The OPC path runs end to end: a target layout is extracted, classified, matched
 > against a declarative rule deck, and **corrected** — hammerheads, line-end extensions,
-> serifs, and edge bias are generated, merged into `POST_OPC`, and written with overlay
-> layers. `jog` and SRAFs are not implemented. The design is specified in
+> serifs, and edge bias are generated and merged into `POST_OPC`, and rule-constrained
+> SRAFs are placed on their own layer with keep-out enforcement and reported
+> rejections. `jog` and verification/reporting are not implemented. The design is specified in
 > [`docs/superpowers/specs/2026-08-14-masklayout-v1-design.md`](docs/superpowers/specs/2026-08-14-masklayout-v1-design.md);
 > everything described below as a capability is planned, not delivered, except where
 > the milestone table marks it complete.
@@ -85,7 +86,7 @@ vocabulary, so whatever `classify` measures is exactly what a rule can select on
 | M3 | PCell library | **complete** |
 | M4 | Extraction, classification, rule deck | **complete** |
 | M5 | Target decorator | **complete** (jog deferred) |
-| M6 | SRAF engine | not started |
+| M6 | SRAF engine | **complete** |
 | M7 | Verification and reporting | not started |
 | M8 | Mask export (×4, tone inversion) | not started |
 | M9 | Regression corpus | not started |
@@ -225,19 +226,19 @@ Four independent checks. Run them separately and read each result; chaining them
 `&&` lets an earlier failure hide behind a later success.
 
 ```bash
-uv run pytest -q                      # 249 tests
+uv run pytest -q                      # 280 tests
 uv run ruff check .                   # lint
 uv run ruff format --check .          # formatting
-uv run mypy src tests examples        # strict type checking, 64 files
+uv run mypy src tests examples        # strict type checking, 69 files
 ```
 
 Expected output:
 
 ```
-249 passed in 0.39s
+280 passed in 0.45s
 All checks passed!
 66 files already formatted
-Success: no issues found in 64 source files
+Success: no issues found in 69 source files
 ```
 
 CI runs exactly these four on every push and pull request.
