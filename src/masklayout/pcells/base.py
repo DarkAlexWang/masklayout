@@ -8,7 +8,7 @@ one validated mechanism rather than introducing a second one.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Protocol
+from typing import Any, Protocol, TypeVar
 
 from pydantic import BaseModel, ConfigDict
 
@@ -32,6 +32,13 @@ class PCellParams(BaseModel):
 
 BuildFn = Callable[[Any, TechConfig, int, int], list[Polygon]]
 
+#: Bound to BuildFn so ``register`` returns the *concrete* decorated function
+#: rather than the bare Callable alias. Returning the alias would erase
+#: parameter names, and callers writing the natural
+#: ``build_contact(params, tech, layer=12)`` would fail type checking even
+#: though it runs fine.
+BuildFnT = TypeVar("BuildFnT", bound=BuildFn)
+
 
 class PCellBuilder(Protocol):
     """What a registered PCell provides."""
@@ -46,10 +53,10 @@ class PCellBuilder(Protocol):
 _REGISTRY: dict[str, tuple[type[PCellParams], BuildFn]] = {}
 
 
-def register(name: str, params_model: type[PCellParams]) -> Callable[[BuildFn], BuildFn]:
+def register(name: str, params_model: type[PCellParams]) -> Callable[[BuildFnT], BuildFnT]:
     """Register a build function under a name, with its params model."""
 
-    def decorate(build: BuildFn) -> BuildFn:
+    def decorate(build: BuildFnT) -> BuildFnT:
         if name in _REGISTRY:
             raise ValueError(f"PCell {name!r} is already registered")
         _REGISTRY[name] = (params_model, build)
