@@ -70,6 +70,21 @@ def registered_names() -> list[str]:
     return sorted(_REGISTRY)
 
 
+def params_model_for(name: str) -> type[PCellParams]:
+    """The parameters model a PCell accepts.
+
+    Callers use this to inject only the placement keys a given PCell
+    understands: a contact takes a centre but no angle, while a line end
+    takes both, and params models forbid unknown keys.
+    """
+    try:
+        return _REGISTRY[name][0]
+    except KeyError:
+        raise UnknownPCellError(
+            f"unknown PCell {name!r}; registered: {registered_names()}"
+        ) from None
+
+
 def build_pcell(
     name: str,
     params: PCellParams | dict[str, Any],

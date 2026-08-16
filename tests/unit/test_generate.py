@@ -162,3 +162,73 @@ def test_features_are_additive_by_default() -> None:
     )
     assert feature is not None
     assert feature.polarity == "add"
+
+
+def _corners(polygon: Polygon) -> list[SiteMeasurement]:
+    sites = extract_sites([polygon], TECH.precision_um, line_end_ratio=0.5)
+    measured = classify_sites(sites, [polygon], TECH, max_probe_um=2.0, density_window_um=1.0)
+    return [m for m in measured if m.site.kind == "convex_corner"]
+
+
+def _edges(polygon: Polygon) -> list[SiteMeasurement]:
+    sites = extract_sites([polygon], TECH.precision_um, line_end_ratio=0.5)
+    measured = classify_sites(sites, [polygon], TECH, max_probe_um=2.0, density_window_um=1.0)
+    return [m for m in measured if m.site.kind == "edge"]
+
+
+def test_serif_and_edge_bias_are_registered() -> None:
+    for kind in ("serif", "edge_bias"):
+        assert kind in registered_kinds()
+
+
+def test_a_serif_is_centred_on_its_corner() -> None:
+    measurement = _corners(_bar())[0]
+    feature = generate_feature(measurement, _match("serif", "contact", size_um=0.04), TECH)
+    assert feature is not None
+    x0, y0, x1, y1 = feature.polygons[0].bounds_dbu
+    cx_nm = measurement.site.midpoint_um[0] * 1000.0
+    cy_nm = measurement.site.midpoint_um[1] * 1000.0
+    assert (x0 + x1) / 2 == pytest.approx(cx_nm, abs=1)
+    assert (y0 + y1) / 2 == pytest.approx(cy_nm, abs=1)
+    assert (x1 - x0) == pytest.approx(40, abs=1)
+
+
+def test_a_serif_with_zero_size_produces_no_feature() -> None:
+    measurement = _corners(_bar())[0]
+    assert generate_feature(measurement, _match("serif", "contact", size_um=0.0), TECH) is None
+
+
+def test_positive_bias_adds_and_negative_bias_subtracts() -> None:
+    measurement = _edges(_bar())[0]
+    grew = generate_feature(measurement, _match("edge_bias", "line_end", bias_um=0.005), TECH)
+    shrank = generate_feature(measurement, _match("edge_bias", "line_end", bias_um=-0.005), TECH)
+    assert grew is not None and grew.polarity == "add"
+    assert shrank is not None and shrank.polarity == "subtract"
+
+
+def test_negative_bias_lies_inside_the_target() -> None:
+    """A band placed outside would subtract nothing."""
+    from shapely.geometry import Point
+    from shapely.geometry import Polygon as ShapelyPolygon
+
+    bar = _bar()
+    shape = ShapelyPolygon(bar.points.astype(np.float64) * TECH.precision_um)
+    measurement = _edges(bar)[0]
+    shrank = generate_feature(measurement, _match("edge_bias", "line_end", bias_um=-0.005), TECH)
+    assert shrank is not None
+    centre = shrank.polygons[0].points.astype(np.float64).mean(axis=0) * TECH.precision_um
+    assert shape.contains(Point(centre[0], centre[1]))
+
+
+def test_a_zero_bias_produces_no_feature() -> None:
+    measurement = _edges(_bar())[0]
+    assert generate_feature(measurement, _match("edge_bias", "line_end", bias_um=0.0), TECH) is None
+
+
+def test_bias_spans_the_whole_edge() -> None:
+    measurement = _edges(_bar(length_nm=2000, width_nm=100))[0]
+    feature = generate_feature(measurement, _match("edge_bias", "line_end", bias_um=0.005), TECH)
+    assert feature is not None
+    x0, y0, x1, y1 = feature.polygons[0].bounds_dbu
+    longest = max(x1 - x0, y1 - y0)
+    assert longest == pytest.approx(measurement.site.edge_length_um * 1000.0, abs=2)

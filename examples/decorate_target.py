@@ -1,11 +1,10 @@
-"""Decorate a target layout: extract sites, classify them, match a rule deck.
+"""Decorate a target layout: extract, classify, match, and generate corrections.
 
 Run:
     uv run python examples/decorate_target.py
 
-This is the OPC path as far as it exists today. It stops at MATCHING:
-M4 decides which rule fires where, and M5 will turn those decisions into
-correction geometry. Nothing is written to a mask here.
+Runs the full OPC path as it exists today and writes a POST_OPC GDS into
+examples/out/ with TARGET, POST_OPC, and overlay layers.
 """
 
 from __future__ import annotations
@@ -15,13 +14,20 @@ from pathlib import Path
 import numpy as np
 
 from masklayout.config import TechConfig
+from masklayout.geometry.normalize import signed_area
+from masklayout.io.streams import write_gds
+from masklayout.model.cell import Cell
 from masklayout.model.geometry import Polygon
+from masklayout.model.layers import LayerMap
+from masklayout.model.layout import Layout
 from masklayout.opc.classify import classify_sites
 from masklayout.opc.deck import load_deck
+from masklayout.opc.decorate import decorate
 from masklayout.opc.extract import extract_sites
 from masklayout.opc.match import match_sites
 
 DECK = Path(__file__).parents[1] / "src" / "masklayout" / "decks" / "generic_hammerhead_v1.yaml"
+OUT = Path(__file__).parent / "out"
 
 
 def bar(x0_nm: int, y0_nm: int, length_nm: int, width_nm: int) -> Polygon:
@@ -87,7 +93,43 @@ def main() -> None:
     print("the inner two face a 60 nm gap and take the dense rule. That is the")
     print("whole point of the vocabulary: context selects the correction.")
     print()
-    print("NOT YET IMPLEMENTED: turning these decisions into geometry (M5).")
+
+    # --- M5: turn those decisions into geometry ---------------------------
+    result = decorate(target, deck, tech)
+    print(f"decorated       : {result.report.summary()}")
+    print()
+    print("generated features:")
+    for feature in result.features:
+        print(f"  {feature.id:<28} {feature.polarity:<9} {feature.vertex_count} vertices")
+    print()
+
+    target_area = sum(abs(signed_area(p.points)) for p in target)
+    post_area = sum(abs(signed_area(p.points)) for p in result.post_opc)
+    growth_pct = 100.0 * (post_area / target_area - 1.0)
+    print(f"target area     : {target_area / 1e6:.6f} um^2")
+    print(f"post-OPC area   : {post_area / 1e6:.6f} um^2  (+{growth_pct:.2f}%)")
+    print(f"overlay ADD     : {len(result.overlay_add)} polygon(s)")
+    print(f"overlay REMOVE  : {len(result.overlay_remove)} polygon(s)")
+    print()
+
+    OUT.mkdir(exist_ok=True)
+    layers = LayerMap.default()
+    layout = Layout(name="DECORATED", tech=tech, layers=layers)
+    top = layout.add(Cell(name="TOP"))
+    top.polygons.extend(target)
+    top.polygons.extend(result.post_opc)
+    top.polygons.extend(result.overlay_add)
+    top.polygons.extend(result.overlay_remove)
+
+    path = OUT / "post_opc.gds"
+    write_gds(layout, path)
+    print(f"wrote {path.name} ({path.stat().st_size} bytes) with layers:")
+    for name in ("TARGET", "POST_OPC", "OVERLAY_ADD", "OVERLAY_REMOVE"):
+        layer = layers[name]
+        count = sum(1 for p in top.polygons if p.layer == layer.number)
+        print(f"  {name:<15} {layer.number}/{layer.datatype}  {count} polygon(s)")
+    print()
+    print("Open it in KLayout to see the corrections against the target.")
 
 
 if __name__ == "__main__":

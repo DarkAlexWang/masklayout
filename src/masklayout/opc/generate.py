@@ -12,6 +12,7 @@ degenerate polygon.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from typing import Any, TypeVar
 
@@ -20,7 +21,7 @@ from masklayout.opc.classify import SiteMeasurement
 from masklayout.opc.feature import Feature
 from masklayout.opc.match import Match
 from masklayout.opc.placement import merge_params, placement_for
-from masklayout.pcells.base import build_pcell
+from masklayout.pcells.base import build_pcell, params_model_for
 
 #: Layer that generated corrections are written to before merging.
 DEFAULT_CORRECTION_LAYER = 11
@@ -132,3 +133,82 @@ def generate_line_end_extension(
     measurement: SiteMeasurement, match: Match, tech: TechConfig
 ) -> Feature | None:
     return _build_line_end_cap(measurement, match, tech, "line_end_extension")
+
+
+@register_generator("serif")
+def generate_serif(measurement: SiteMeasurement, match: Match, tech: TechConfig) -> Feature | None:
+    """A small pad centred on a corner vertex.
+
+    Centring on the vertex means half the pad lies inside the target and half
+    outside; after the union only the outside half survives as added material,
+    which is what a serif is. No angle is injected because the pad is
+    symmetric about its centre.
+    """
+    size_um = _require(match.params, "size_um", "serif")
+    if size_um <= 0.0:
+        return None
+
+    shape: dict[str, Any] = dict(match.params)
+    shape["size_um"] = (size_um, size_um)
+
+    accepted = params_model_for(match.pcell).model_fields
+    params = merge_params(placement_for(measurement.site), shape, accepted_keys=accepted)
+    polygons = build_pcell(match.pcell, params, tech, layer=DEFAULT_CORRECTION_LAYER, datatype=0)
+    return Feature(
+        id=feature_id(match),
+        kind="serif",
+        polygons=polygons,
+        source_site_id=measurement.site.site_id,
+        rule_id=match.rule_id,
+        deck_id=match.deck_id,
+        deck_version=match.deck_version,
+        deck_hash=match.deck_hash,
+        parameters=dict(match.params),
+        polarity="add",
+    )
+
+
+@register_generator("edge_bias")
+def generate_edge_bias(
+    measurement: SiteMeasurement, match: Match, tech: TechConfig
+) -> Feature | None:
+    """Move an edge outward (positive bias) or inward (negative).
+
+    The correction is a band the length of the edge and the depth of the bias.
+    A positive bias is unioned onto the target; a negative one is built along
+    the *inward* normal and subtracted, because a band placed outside would
+    remove nothing.
+    """
+    bias_um = _require(match.params, "bias_um", "edge_bias")
+    if bias_um == 0.0:
+        return None
+
+    edge_length_um = measurement.site.edge_length_um
+    if edge_length_um <= 0.0:
+        return None
+
+    placement = placement_for(measurement.site)
+    if bias_um < 0.0:
+        # Reflect the placement so the band lies inside the target. The rule
+        # still may not set an angle; this is the generator's own geometry.
+        placement = {**placement, "angle_rad": placement["angle_rad"] + math.pi}
+
+    shape: dict[str, Any] = {key: value for key, value in match.params.items() if key != "bias_um"}
+    shape["extension_um"] = abs(bias_um)
+    shape["width_um"] = edge_length_um
+
+    accepted = params_model_for(match.pcell).model_fields
+    params = merge_params(placement, shape, accepted_keys=accepted)
+    polygons = build_pcell(match.pcell, params, tech, layer=DEFAULT_CORRECTION_LAYER, datatype=0)
+    return Feature(
+        id=feature_id(match),
+        kind="edge_bias",
+        polygons=polygons,
+        source_site_id=measurement.site.site_id,
+        rule_id=match.rule_id,
+        deck_id=match.deck_id,
+        deck_version=match.deck_version,
+        deck_hash=match.deck_hash,
+        parameters=dict(match.params),
+        polarity="add" if bias_um > 0.0 else "subtract",
+    )

@@ -42,7 +42,7 @@ rules:
         extension_um: 0.014
 
   # A different kind, so it composes with a hammerhead on the same site
-  # rather than competing with it.
+  # rather than competing with it. Positive bias grows the edge outward.
   - id: bias_narrow_edge
     priority: 30
     kind: edge_bias
@@ -50,6 +50,6 @@ rules:
       site: edge
       width_nm: {max: 140}
     apply:
-      pcell: rounded_rect
+      pcell: line_end
       params:
-        radius_um: 0.002
+        bias_um: 0.002

@@ -8,11 +8,11 @@ target GDS with deterministic rule-based OPC-like corrections — hammerheads, s
 jogs, line-end extensions, local bias, SRAFs — and exports both engineering (1×) and
 mask (×4, tone-applied) streams.
 
-> **Status: M4 complete. Early development.**
-> Everything through site extraction, the selector vocabulary, and the declarative
-> rule deck is in place and tested: a target layout can be extracted, classified, and
-> matched against rules. **Correction geometry is not generated yet** — M4 produces
-> matches, not shapes; that is M5. The design is specified in
+> **Status: M5 complete. Early development.**
+> The OPC path runs end to end: a target layout is extracted, classified, matched
+> against a declarative rule deck, and **corrected** — hammerheads, line-end extensions,
+> serifs, and edge bias are generated, merged into `POST_OPC`, and written with overlay
+> layers. `jog` and SRAFs are not implemented. The design is specified in
 > [`docs/superpowers/specs/2026-08-14-masklayout-v1-design.md`](docs/superpowers/specs/2026-08-14-masklayout-v1-design.md);
 > everything described below as a capability is planned, not delivered, except where
 > the milestone table marks it complete.
@@ -84,7 +84,7 @@ vocabulary, so whatever `classify` measures is exactly what a rule can select on
 | M2 | Geometry compiler | **complete** |
 | M3 | PCell library | **complete** |
 | M4 | Extraction, classification, rule deck | **complete** |
-| M5 | Target decorator | not started |
+| M5 | Target decorator | **complete** (jog deferred) |
 | M6 | SRAF engine | not started |
 | M7 | Verification and reporting | not started |
 | M8 | Mask export (×4, tone inversion) | not started |
@@ -199,8 +199,25 @@ This is the point of the whole vocabulary: the two inner line ends measure `spac
 and take the **dense** rule, while the two outer ends measure `space = inf` and take the
 **isolated** rule. Identical geometry, different correction, decided by context.
 
-It stops at matching. **Turning these decisions into correction geometry is not
-implemented** — that is M5.
+It then generates the correction geometry, merges it into `POST_OPC`, and writes
+`examples/out/post_opc.gds` with `TARGET`, `POST_OPC`, and both overlay layers:
+
+```
+decorated       : 16 sites, 8 matched, 8 features, (edge_bias x4, hammerhead x4)
+
+target area     : 0.400000 um^2
+post-OPC area   : 0.424392 um^2  (+6.10%)
+overlay ADD     : 2 polygon(s)
+overlay REMOVE  : 0 polygon(s)
+
+wrote post_opc.gds (880 bytes) with layers:
+  TARGET          10/0  2 polygon(s)
+  POST_OPC        11/0  2 polygon(s)
+  OVERLAY_ADD     202/0  2 polygon(s)
+  OVERLAY_REMOVE  203/0  0 polygon(s)
+```
+
+Open that file in KLayout to see the corrections against the target.
 
 ## Verifying the build
 
@@ -208,19 +225,19 @@ Four independent checks. Run them separately and read each result; chaining them
 `&&` lets an earlier failure hide behind a later success.
 
 ```bash
-uv run pytest -q                      # 197 tests
+uv run pytest -q                      # 249 tests
 uv run ruff check .                   # lint
 uv run ruff format --check .          # formatting
-uv run mypy src tests examples        # strict type checking, 55 files
+uv run mypy src tests examples        # strict type checking, 64 files
 ```
 
 Expected output:
 
 ```
-197 passed in 0.33s
+249 passed in 0.39s
 All checks passed!
-55 files already formatted
-Success: no issues found in 55 source files
+66 files already formatted
+Success: no issues found in 64 source files
 ```
 
 CI runs exactly these four on every push and pull request.

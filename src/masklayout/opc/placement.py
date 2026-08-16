@@ -9,6 +9,7 @@ placement key is rejected rather than silently honoured.
 from __future__ import annotations
 
 import math
+from collections.abc import Container
 from typing import Any
 
 from masklayout.opc.sites import Site
@@ -34,8 +35,18 @@ def placement_for(site: Site) -> dict[str, Any]:
     }
 
 
-def merge_params(placement: dict[str, Any], rule_params: dict[str, Any]) -> dict[str, Any]:
-    """Combine derived placement with a rule's shape parameters."""
+def merge_params(
+    placement: dict[str, Any],
+    rule_params: dict[str, Any],
+    accepted_keys: Container[str] | None = None,
+) -> dict[str, Any]:
+    """Combine derived placement with a rule's shape parameters.
+
+    ``accepted_keys`` limits which placement keys are injected, because
+    different PCells accept different placement: a contact takes a centre but
+    no angle. The override check still covers *every* placement key, so a rule
+    cannot sneak one in via a PCell that happens to ignore it.
+    """
     conflicts = PLACEMENT_KEYS & set(rule_params)
     if conflicts:
         raise PlacementOverrideError(
@@ -43,4 +54,9 @@ def merge_params(placement: dict[str, Any], rule_params: dict[str, Any]) -> dict
             f"determined by the site geometry; a rule may only supply shape "
             f"parameters. Placement keys are {sorted(PLACEMENT_KEYS)}"
         )
-    return {**rule_params, **placement}
+    usable = (
+        placement
+        if accepted_keys is None
+        else {key: value for key, value in placement.items() if key in accepted_keys}
+    )
+    return {**rule_params, **usable}

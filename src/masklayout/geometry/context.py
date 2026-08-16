@@ -12,12 +12,15 @@ quietly substitute those for the configured grid and fracture limit.
 from __future__ import annotations
 
 import datetime
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 import gdstk
+import numpy as np
 
 from masklayout.config import TechConfig
+from masklayout.model.geometry import Polygon as ModelPolygon
 
 BooleanOperation = Literal["or", "and", "xor", "not"]
 #: Join styles accepted by ``gdstk.offset``. Narrower than FlexPath's join
@@ -85,6 +88,45 @@ class GeomContext:
             max_points=self._tech.fracture_vertex_limit,
             precision=self.precision_um,
         )
+
+    def boolean_polygons(
+        self,
+        operand1: Sequence[ModelPolygon],
+        operand2: Sequence[ModelPolygon],
+        operation: BooleanOperation,
+        layer: int,
+        datatype: int = 0,
+    ) -> list[ModelPolygon]:
+        """Boolean on model polygons, returning model polygons.
+
+        Lets callers outside the gdstk allowlist combine geometry. Because
+        precision equals the design grid, the result is grid-aligned by
+        construction and no separate snap is needed.
+        """
+        precision_um = self._tech.precision_um
+
+        def to_gdstk(polygons: Sequence[ModelPolygon]) -> list[gdstk.Polygon]:
+            return [
+                gdstk.Polygon(
+                    cast(
+                        "Sequence[tuple[float, float]]",
+                        polygon.points.astype(np.float64) * precision_um,
+                    )
+                )
+                for polygon in polygons
+            ]
+
+        result = gdstk.boolean(
+            to_gdstk(operand1), to_gdstk(operand2), operation, precision=precision_um
+        )
+        return [
+            ModelPolygon(
+                points=np.round(np.asarray(piece.points) / precision_um).astype(np.int64),
+                layer=layer,
+                datatype=datatype,
+            )
+            for piece in result
+        ]
 
     def new_library(self, name: str) -> gdstk.Library:
         """A library whose database precision matches the design grid."""
