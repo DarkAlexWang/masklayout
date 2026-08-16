@@ -128,6 +128,51 @@ class GeomContext:
             for piece in result
         ]
 
+    def offset_polygons(
+        self,
+        polygons: Sequence[ModelPolygon],
+        distance_um: float,
+        layer: int,
+        datatype: int = 0,
+        join: JoinStyle = "miter",
+        tolerance: int = 2,
+    ) -> list[ModelPolygon]:
+        """Dilate or erode model polygons, returning model polygons.
+
+        Lets callers outside the gdstk allowlist do morphological work. Uses
+        use_union=True so a set of polygons erodes as one shape rather than
+        each in isolation.
+        """
+        precision_um = self._tech.precision_um
+        source = [
+            gdstk.Polygon(
+                cast(
+                    "Sequence[tuple[float, float]]",
+                    polygon.points.astype(np.float64) * precision_um,
+                )
+            )
+            for polygon in polygons
+        ]
+        if not source:
+            return []
+        result = gdstk.offset(
+            source,
+            distance_um,
+            join=join,
+            tolerance=tolerance,
+            precision=precision_um,
+            use_union=True,
+        )
+        return [
+            ModelPolygon(
+                points=np.round(np.asarray(piece.points) / precision_um).astype(np.int64),
+                layer=layer,
+                datatype=datatype,
+            )
+            for piece in result
+            if len(piece.points) >= 3
+        ]
+
     def new_library(self, name: str) -> gdstk.Library:
         """A library whose database precision matches the design grid."""
         return gdstk.Library(name, unit=USER_UNIT_M, precision=self._tech.precision_m)

@@ -13,8 +13,10 @@ from pathlib import Path
 
 import numpy as np
 
+from masklayout import __version__
 from masklayout.config import TechConfig
 from masklayout.geometry.normalize import signed_area
+from masklayout.io.manifest import build_manifest, write_manifest
 from masklayout.io.streams import write_gds
 from masklayout.model.cell import Cell
 from masklayout.model.geometry import Polygon
@@ -25,6 +27,9 @@ from masklayout.opc.deck import load_deck
 from masklayout.opc.decorate import decorate
 from masklayout.opc.extract import extract_sites
 from masklayout.opc.match import match_sites
+from masklayout.render.svg import render_svg
+from masklayout.verify.mrc import check_min_space, check_min_width
+from masklayout.verify.structural import run_structural_checks
 
 DECK = Path(__file__).parents[1] / "src" / "masklayout" / "decks" / "generic_hammerhead_v1.yaml"
 OUT = Path(__file__).parent / "out"
@@ -129,7 +134,41 @@ def main() -> None:
         count = sum(1 for p in top.polygons if p.layer == layer.number)
         print(f"  {name:<15} {layer.number}/{layer.datatype}  {count} polygon(s)")
     print()
-    print("Open it in KLayout to see the corrections against the target.")
+
+    # --- M7: verify and report -------------------------------------------
+    violations = run_structural_checks(result.post_opc, tech)
+    violations += check_min_width(result.post_opc, 20.0, tech)
+    violations += check_min_space(result.post_opc, 60.0, tech)
+    print(f"verification    : {len(violations)} violation(s)")
+    for violation in violations:
+        print(f"  [{violation.severity}] {violation.check}: {violation.message}")
+    if not violations:
+        print("  (clean)")
+    print()
+
+    geometry = {
+        "TARGET": target,
+        "POST_OPC": result.post_opc,
+        "OVERLAY_ADD": result.overlay_add,
+        "DEBUG_MARKERS": [p for v in violations for p in v.polygons],
+    }
+    manifest = build_manifest(
+        tech,
+        tool_version=__version__,
+        features=result.features,
+        violations=violations,
+        layer_geometry=geometry,
+        deck_id=deck.id,
+        deck_version=deck.version,
+        deck_hash=deck.content_hash,
+        mrc_ran=True,
+    )
+    write_manifest(OUT / "post_opc.manifest.json", manifest)
+    render_svg(OUT / "post_opc.svg", geometry, tech)
+    print(f"wrote post_opc.manifest.json ({(OUT / 'post_opc.manifest.json').stat().st_size} bytes)")
+    print(f"wrote post_opc.svg ({(OUT / 'post_opc.svg').stat().st_size} bytes)")
+    print()
+    print("Open post_opc.gds in KLayout, or post_opc.svg in any browser.")
 
 
 if __name__ == "__main__":
