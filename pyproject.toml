@@ -39,9 +39,10 @@ pythonpath = ["."]
 [tool.ruff]
 line-length = 100
 src = ["src", "tests"]
-# Prose docs contain illustrative Python snippets; ruff formats fenced code
-# blocks in Markdown, which would couple the design docs to formatter style.
-extend-exclude = ["docs"]
+# Prose contains illustrative Python snippets; ruff formats fenced code blocks
+# in Markdown, which would couple documentation to formatter style and rewrite
+# examples chosen for readability.
+extend-exclude = ["docs", "*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "SIM", "RUF"]
